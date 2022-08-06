@@ -162,6 +162,8 @@ public class WordServiceImpl implements WordService {
                     // 10.返回体
                     Map<String, Object> responses = (LinkedHashMap) content.get("responses");
 
+                    Map<String, List<Request>> requestMap = processRequestList(parameters, definitionMap);
+
                     //封装Table
                     Table table = new Table();
 
@@ -172,7 +174,9 @@ public class WordServiceImpl implements WordService {
                     table.setRequestForm(requestForm);
                     table.setResponseForm(responseForm);
                     table.setRequestType(requestType);
-                    table.setRequestList(processRequestList(parameters, definitionMap));
+                    table.setPathList(requestMap.get("path"));
+                    table.setQueryList(requestMap.get("query"));
+                    table.setBodyList(requestMap.get("body"));
                     table.setResponseList(processResponseCodeList(responses));
 
                     // 取出来状态是200时的返回值
@@ -182,8 +186,8 @@ public class WordServiceImpl implements WordService {
                     }
 
                     //示例
-                    table.setRequestParam(processRequestParam(table.getRequestList()));
-                    table.setResponseParam(processResponseParam(obj, definitionMap));
+//                    table.setRequestParam(processRequestParam(table.getRequestList()));
+//                    table.setResponseParam(processResponseParam(obj, definitionMap));
 
                     result.add(table);
                 }
@@ -199,8 +203,13 @@ public class WordServiceImpl implements WordService {
      * @param definitinMap
      * @return
      */
-    private List<Request> processRequestList(List<LinkedHashMap> parameters, Map<String, ModelAttr> definitinMap) {
-        List<Request> requestList = new ArrayList<>();
+    private Map<String, List<Request>> processRequestList(List<LinkedHashMap> parameters, Map<String, ModelAttr> definitinMap) {
+        Map<String, List<Request>> requestMap = new HashMap<>();
+        {
+            requestMap.put("path", new ArrayList<>());
+            requestMap.put("query", new ArrayList<>());
+            requestMap.put("body", new ArrayList<>());
+        }
         if (!CollectionUtils.isEmpty(parameters)) {
             for (Map<String, Object> param : parameters) {
                 Object in = param.get("in");
@@ -222,7 +231,6 @@ public class WordServiceImpl implements WordService {
                         request.setType("array");
                     }
                     if (ref != null) {
-                        request.setType(request.getType() + ":" + ref.toString().replaceAll("#/definitions/", ""));
                         request.setModelAttr(definitinMap.get(ref));
                     }
                 }
@@ -233,10 +241,16 @@ public class WordServiceImpl implements WordService {
                 }
                 // 参数说明
                 request.setRemark(String.valueOf(param.get("description")));
+
+                List<Request> requestList = requestMap.get(String.valueOf(in));
+                if (CollectionUtils.isEmpty(requestList)) {
+                    requestList = new ArrayList<>();
+                    requestMap.put(String.valueOf(in), requestList);
+                }
                 requestList.add(request);
             }
         }
-        return requestList;
+        return requestMap;
     }
 
 

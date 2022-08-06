@@ -87,7 +87,7 @@
     <div th:each="tableMap:${tableMap}" style="margin-bottom:20px;">
         <!--这个是类的说明-->
         <h4 class="first_title" th:text="${tableMap.key}"></h4>
-        <div th:each="table,tableStat:${tableMap.value}">s
+        <div th:each="table,tableStat:${tableMap.value}">
 
             <!--这个是每个请求的说明，方便生成文档后进行整理-->
             <h5 class="second_title" th:text="${tableStat.count} + '）' + ${table.tag}"></h5>
@@ -119,27 +119,64 @@
 
                 <tr class="bg">
                     <td>参数名</td>
-                    <td width="15%">数据类型</td>
-                    <td width="15%">参数类型</td>
+                    <td width="20%">数据类型</td>
                     <td width="15%">是否必填</td>
-                    <td width="29%">说明</td>
+                    <td width="42%">说明</td>
                 </tr>
 
-                <th:block th:each="request, c:${table.requestList}">
+                <tr class="bg" th:if="${not #lists.isEmpty(table.pathList)}">
+                    <td colspan="5" th:text="PATH" ></td>
+                </tr>
+
+                <th:block th:each="request, c:${table.pathList}">
                     <tr>
                         <td align="left" th:text="${c.count} + '.' + ${request.name}"></td>
                         <td th:text="${request.type}"></td>
-                        <td th:text="${request.paramType}"></td>
-                        <td th:if="${request.require}" th:text="Y"></td>
-                        <td th:if="${!request.require}" th:text="N"></td>
+                        <td th:if="${request.require}" th:text="是"></td>
+                        <td th:if="${!request.require}" th:text="否"></td>
                         <td th:text="${request.remark}"></td>
                         <!--                        <td th:if="${request.modelAttr}" th:text="asdfagadfg"></td>-->
                     </tr>
                     <th:block th:if="${request.modelAttr}">
                         <tbody th:include="this::request(${request.modelAttr.properties},${c.count} + '.', 1)"/>
                     </th:block>
+                </th:block>
 
 
+                <tr class="bg" th:if="${not #lists.isEmpty(table.queryList)}">
+                    <td colspan="5" th:text="QUERY" ></td>
+                </tr>
+
+                <th:block th:each="request, c:${table.queryList}">
+                    <tr>
+                        <td align="left" th:text="${c.count} + '.' + ${request.name}"></td>
+                        <td th:text="${request.type}"></td>
+                        <td th:if="${request.require}" th:text="是"></td>
+                        <td th:if="${!request.require}" th:text="否"></td>
+                        <td th:text="${request.remark}"></td>
+                        <!--                        <td th:if="${request.modelAttr}" th:text="asdfagadfg"></td>-->
+                    </tr>
+                    <th:block th:if="${request.modelAttr}">
+                        <tbody th:include="this::request(${request.modelAttr.properties},${c.count} + '.', 1)"/>
+                    </th:block>
+                </th:block>
+
+                <tr class="bg" th:if="${not #lists.isEmpty(table.bodyList)}">
+                    <td colspan="5" th:text="BODY" ></td>
+                </tr>
+
+                <th:block th:each="request, c:${table.bodyList}">
+                    <tr>
+                        <td align="left" th:text="${c.count} + '.' + ${request.name}"></td>
+                        <td th:text="${request.type}"></td>
+                        <td th:if="${request.require}" th:text="是"></td>
+                        <td th:if="${!request.require}" th:text="否"></td>
+                        <td th:text="${request.remark}"></td>
+                        <!--                        <td th:if="${request.modelAttr}" th:text="asdfagadfg"></td>-->
+                    </tr>
+                    <th:block th:if="${request.modelAttr}">
+                        <tbody th:include="this::request(${request.modelAttr.properties},${c.count} + '.', 1)"/>
+                    </th:block>
                 </th:block>
 
                 <tr class="bg">
@@ -186,9 +223,8 @@
             <td align="left" th:text="${count} + '' + ${c.count} + '.' + ${p.name}"
                 th:style="|padding-left:${10*lv}px|"></td>
             <td th:text="${p.type}"></td>
-            <td></td>
-            <td th:if="${p.require}" th:text="Y"></td>
-            <td th:if="${!p.require}" th:text="N"></td>
+            <td th:if="${p.require}" th:text="是"></td>
+            <td th:if="${!p.require}" th:text="否"></td>
             <td th:text="${p.description}"></td>
         </tr>
         <th:block th:unless="${#lists.isEmpty(p.properties)}"

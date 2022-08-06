@@ -66,12 +66,28 @@ public class Table {
 		this.requestType = requestType;
 	}
 
-	public List<Request> getRequestList() {
-		return requestList;
+	public List<Request> getPathList() {
+		return pathList;
 	}
 
-	public void setRequestList(List<Request> requestList) {
-		this.requestList = requestList;
+	public void setPathList(List<Request> pathList) {
+		this.pathList = pathList;
+	}
+
+	public List<Request> getQueryList() {
+		return queryList;
+	}
+
+	public void setQueryList(List<Request> queryList) {
+		this.queryList = queryList;
+	}
+
+	public List<Request> getBodyList() {
+		return bodyList;
+	}
+
+	public void setBodyList(List<Request> bodyList) {
+		this.bodyList = bodyList;
 	}
 
 	public List<Response> getResponseList() {
@@ -142,7 +158,11 @@ public class Table {
     /**
      * 请求体
      */
-    private List<Request> requestList;
+    private List<Request> pathList;
+
+    private List<Request> queryList;
+
+    private List<Request> bodyList;
 
     /**
      * 返回体
