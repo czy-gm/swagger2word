@@ -182,7 +182,7 @@ public class WordServiceImpl implements WordService {
                     // 取出来状态是200时的返回值
                     Map<String, Object> obj = (Map<String, Object>) responses.get("200");
                     if (obj != null && obj.get("schema") != null) {
-                        table.setModelAttr(processResponseModelAttrs(obj, definitionMap));
+                        table.setModelAttr(processResponseModelAttrs(map, obj, definitionMap));
                     }
 
                     //示例
@@ -287,7 +287,9 @@ public class WordServiceImpl implements WordService {
      * @param definitinMap
      * @return
      */
-    private ModelAttr processResponseModelAttrs(Map<String, Object> responseObj, Map<String, ModelAttr> definitinMap) {
+    private ModelAttr processResponseModelAttrs(Map<String, Object> map, Map<String, Object> responseObj, Map<String, ModelAttr> definitinMap) {
+        Map<String, Map<String, Object>> definitions = (Map<String, Map<String, Object>>) map.get("definitions");
+
         Map<String, Object> schema = (Map<String, Object>) responseObj.get("schema");
         String type = (String) schema.get("type");
         String ref = null;
@@ -310,6 +312,29 @@ public class WordServiceImpl implements WordService {
         if (StringUtils.isNotBlank(ref) && definitinMap.get(ref) != null) {
             modelAttr = definitinMap.get(ref);
         }
+
+        // allOf
+        if (schema.get("allOf") != null) {
+            List<Map<String, Object>> items = (List<Map<String, Object>>) schema.get("allOf");
+            for (Map<String, Object> entry : items) {
+                if (entry.get("$ref") != null) {
+                    String refName = entry.get("$ref").toString();
+                    modelAttr.getProperties().addAll(definitinMap.getOrDefault(refName, new ModelAttr()).getProperties());
+                } else if (entry.get("properties") != null) {
+                    Map<String, Object> modeProperties1 = (Map<String, Object>) entry.get("properties");
+                    List<ModelAttr> modelAttrList = getModelAttrs(definitions, definitinMap, modelAttr, modeProperties1);
+                    List<ModelAttr> attrList = modelAttr.getProperties();
+                    for (ModelAttr newModel : modelAttrList) {
+                        for (int j = 0; j < attrList.size(); j++) {
+                            if (newModel.getName().equals(attrList.get(j).getName())) {
+                                attrList.set(j, newModel);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return modelAttr;
     }
 
