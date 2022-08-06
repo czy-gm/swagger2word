@@ -65,7 +65,6 @@ public class WordServiceImpl implements WordService {
     @Override
     public Map<String, Object> tableList(MultipartFile jsonFile) {
         Map<String, Object> resultMap = new HashMap<>();
-        List<Table> result = new ArrayList<>();
         try {
             String jsonStr = new String(jsonFile.getBytes());
             resultMap = tableListFromString(jsonStr);
@@ -76,100 +75,12 @@ public class WordServiceImpl implements WordService {
         return resultMap;
     }
 
-    // 处理方案一： 同一路由下所有请求方式合并为一个表格
     private Map<String, Object> getResultFromString(List<Table> result, String jsonStr) throws IOException {
         // convert JSON string to Map
         Map<String, Object> map = JsonUtils.readValue(jsonStr, HashMap.class);
 
         //解析model
-        Map<String, ModelAttr> definitinMap = parseDefinitions(map);
-
-        //解析paths
-        Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) map.get("paths");
-        if (paths != null) {
-            Iterator<Entry<String, Map<String, Object>>> it = paths.entrySet().iterator();
-            while (it.hasNext()) {
-                Entry<String, Map<String, Object>> path = it.next();
-
-                Iterator<Entry<String, Object>> it2 = path.getValue().entrySet().iterator();
-                // 1.请求路径
-                String url = path.getKey();
-
-                // 2. 循环解析每个子节点，适应同一个路径几种请求方式的场景
-                while (it2.hasNext()) {
-                    Entry<String, Object> request = it2.next();
-
-                    // 2. 请求方式，类似为 get,post,delete,put 这样
-                    String requestType = request.getKey();
-
-                    Map<String, Object> content = (Map<String, Object>) request.getValue();
-
-                    // 4. 大标题（类说明）
-                    String title = String.valueOf(((List) content.get("tags")).get(0));
-
-                    // 5.小标题 （方法说明）
-                    String tag = String.valueOf(content.get("summary"));
-
-                    // 6.接口描述
-                    String description = String.valueOf(content.get("summary"));
-
-                    // 7.请求参数格式，类似于 multipart/form-data
-                    String requestForm = "";
-                    List<String> consumes = (List) content.get("consumes");
-                    if (consumes != null && consumes.size() > 0) {
-                        requestForm = StringUtils.join(consumes, ",");
-                    }
-
-                    // 8.返回参数格式，类似于 application/json
-                    String responseForm = "";
-                    List<String> produces = (List) content.get("produces");
-                    if (produces != null && produces.size() > 0) {
-                        responseForm = StringUtils.join(produces, ",");
-                    }
-
-                    // 9. 请求体
-                    List<LinkedHashMap> parameters = (ArrayList) content.get("parameters");
-
-                    // 10.返回体
-                    Map<String, Object> responses = (LinkedHashMap) content.get("responses");
-
-                    //封装Table
-                    Table table = new Table();
-
-                    table.setTitle(title);
-                    table.setUrl(url);
-                    table.setTag(tag);
-                    table.setDescription(description);
-                    table.setRequestForm(requestForm);
-                    table.setResponseForm(responseForm);
-                    table.setRequestType(requestType);
-                    table.setRequestList(processRequestList(parameters, definitinMap));
-                    table.setResponseList(processResponseCodeList(responses));
-
-                    // 取出来状态是200时的返回值
-                    Map<String, Object> obj = (Map<String, Object>) responses.get("200");
-                    if (obj != null && obj.get("schema") != null) {
-                        table.setModelAttr(processResponseModelAttrs(obj, definitinMap));
-                    }
-
-                    //示例
-                    table.setRequestParam(processRequestParam(table.getRequestList()));
-                    table.setResponseParam(processResponseParam(obj, definitinMap));
-
-                    result.add(table);
-                }
-            }
-        }
-        return map;
-    }
-
-    //  处理方案二： 新增： 同一路由下所有请求方式单独为一个表格
-    /*private Map<String, Object> getResultFromString(List<Table> result, String jsonStr) throws IOException {
-        // convert JSON string to Map
-        Map<String, Object> map = JsonUtils.readValue(jsonStr, HashMap.class);
-
-        //解析model
-        Map<String, ModelAttr> definitinMap = parseDefinitions(map);
+        Map<String, ModelAttr> definitionMap = parseDefinitions(map);
 
         //解析paths
         Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) map.get("paths");
@@ -210,10 +121,12 @@ public class WordServiceImpl implements WordService {
                     String title = String.valueOf(((List) content.get("tags")).get(0));
 
                     // 5.小标题 （方法说明）
-                    String tag = String.valueOf(content.get("operationId"));
+                    String tag = String.valueOf(content.getOrDefault("operationId", ""));
 
                     // 6.接口描述
-                    String description = String.valueOf(content.get("description"));
+                    String description = String.valueOf(content.getOrDefault("description", ""));
+
+                    tag = StringUtils.isEmpty(tag) ? description : tag;
 
                     // 7.请求参数格式，类似于 multipart/form-data
                     String requestForm = "";
@@ -259,25 +172,25 @@ public class WordServiceImpl implements WordService {
                     table.setRequestForm(requestForm);
                     table.setResponseForm(responseForm);
                     table.setRequestType(requestType);
-                    table.setRequestList(processRequestList(parameters, definitinMap));
+                    table.setRequestList(processRequestList(parameters, definitionMap));
                     table.setResponseList(processResponseCodeList(responses));
 
                     // 取出来状态是200时的返回值
                     Map<String, Object> obj = (Map<String, Object>) responses.get("200");
                     if (obj != null && obj.get("schema") != null) {
-                        table.setModelAttr(processResponseModelAttrs(obj, definitinMap));
+                        table.setModelAttr(processResponseModelAttrs(obj, definitionMap));
                     }
 
                     //示例
                     table.setRequestParam(processRequestParam(table.getRequestList()));
-                    table.setResponseParam(processResponseParam(obj, definitinMap));
+                    table.setResponseParam(processResponseParam(obj, definitionMap));
 
                     result.add(table);
                 }
             }
         }
         return map;
-    }*/
+    }
 
     /**
      * 处理请求参数列表
@@ -394,15 +307,15 @@ public class WordServiceImpl implements WordService {
      */
     private Map<String, ModelAttr> parseDefinitions(Map<String, Object> map) {
         Map<String, Map<String, Object>> definitions = (Map<String, Map<String, Object>>) map.get("definitions");
-        Map<String, ModelAttr> definitinMap = new HashMap<>(256);
+        Map<String, ModelAttr> definitionMap = new HashMap<>(256);
         if (definitions != null) {
             Iterator<String> modelNameIt = definitions.keySet().iterator();
             while (modelNameIt.hasNext()) {
                 String modeName = modelNameIt.next();
-                getAndPutModelAttr(definitions, definitinMap, modeName);
+                getAndPutModelAttr(definitions, definitionMap, modeName);
             }
         }
-        return definitinMap;
+        return definitionMap;
     }
 
     /**
