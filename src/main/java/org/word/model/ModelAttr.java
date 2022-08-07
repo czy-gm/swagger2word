@@ -106,4 +106,6 @@ public class ModelAttr implements Serializable {
      * 是否加载完成，避免循环引用
      */
     private boolean isCompleted = false;
+
+    private Object example;
 }

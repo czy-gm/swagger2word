@@ -1,6 +1,7 @@
 package org.word.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -86,10 +87,12 @@ public class WordServiceImpl implements WordService {
         Map<String, Map<String, Object>> paths = (Map<String, Map<String, Object>>) map.get("paths");
 
         //获取全局请求参数格式作为默认请求参数格式
-        List<String> defaultConsumes = (List) map.get("consumes");
+        List<String> defaultConsumes = (List) map.getOrDefault("consumes",
+                Lists.newArrayList("application/json"));
 
         //获取全局响应参数格式作为默认响应参数格式
-        List<String> defaultProduces = (List) map.get("produces");
+        List<String> defaultProduces = (List) map.getOrDefault("produces",
+                Lists.newArrayList("application/json"));
 
         if (paths != null) {
 
@@ -162,7 +165,7 @@ public class WordServiceImpl implements WordService {
                     // 10.返回体
                     Map<String, Object> responses = (LinkedHashMap) content.get("responses");
 
-                    Map<String, List<Request>> requestMap = processRequestList(parameters, definitionMap);
+                    Map<String, List<Request>> requestMap = processRequestList(map, parameters, definitionMap);
 
                     //封装Table
                     Table table = new Table();
@@ -186,7 +189,7 @@ public class WordServiceImpl implements WordService {
                     }
 
                     //示例
-//                    table.setRequestParam(processRequestParam(table.getRequestList()));
+//                    table.setRequestParam(processRequestParam(table.getBodyList()));
 //                    table.setResponseParam(processResponseParam(obj, definitionMap));
 
                     result.add(table);
@@ -203,7 +206,8 @@ public class WordServiceImpl implements WordService {
      * @param definitinMap
      * @return
      */
-    private Map<String, List<Request>> processRequestList(List<LinkedHashMap> parameters, Map<String, ModelAttr> definitinMap) {
+    private Map<String, List<Request>> processRequestList(Map<String, Object> map, List<LinkedHashMap> parameters, Map<String, ModelAttr> definitinMap) {
+        Map<String, Map<String, Object>> definitions = (Map<String, Map<String, Object>>) map.get("definitions");
         Map<String, List<Request>> requestMap = new HashMap<>();
         {
             requestMap.put("path", new ArrayList<>());
@@ -233,6 +237,31 @@ public class WordServiceImpl implements WordService {
                     if (ref != null) {
                         request.setModelAttr(definitinMap.get(ref));
                     }
+                    if (schema.get("allOf") != null) {
+                        List<Map<String, Object>> items = (List<Map<String, Object>>) schema.get("allOf");
+                        for (Map<String, Object> entry : items) {
+                            if (entry.get("$ref") != null) {
+                                String refName = entry.get("$ref").toString();
+                                request.setModelAttr(definitinMap.getOrDefault(refName, new ModelAttr()));
+                            } else if (entry.get("properties") != null) {
+                                Map<String, Object> modeProperties1 = (Map<String, Object>) entry.get("properties");
+                                List<ModelAttr> modelAttrList = getModelAttrs(definitions, definitinMap, new ModelAttr(), modeProperties1);
+                                ModelAttr modelAttr = request.getModelAttr();
+                                if (modelAttr == null) {
+                                    request.setModelAttr(new ModelAttr());
+                                }
+                                List<ModelAttr> attrList = request.getModelAttr().getProperties();
+
+                                for (ModelAttr newModel : modelAttrList) {
+                                    for (int j = 0; j < attrList.size(); j++) {
+                                        if (newModel.getName().equals(attrList.get(j).getName())) {
+                                            attrList.set(j, newModel);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 // 是否必填
                 request.setRequire(false);
@@ -240,7 +269,7 @@ public class WordServiceImpl implements WordService {
                     request.setRequire((Boolean) param.get("required"));
                 }
                 // 参数说明
-                request.setRemark(String.valueOf(param.get("description")));
+                request.setRemark(String.valueOf(param.getOrDefault("description", "")));
 
                 List<Request> requestList = requestMap.get(String.valueOf(in));
                 if (CollectionUtils.isEmpty(requestList)) {
@@ -369,8 +398,13 @@ public class WordServiceImpl implements WordService {
         } else if (modeAttr.isCompleted()) {
             return resMap.get("#/definitions/" + modeName);
         }
-        Map<String, Object> modeProperties = (Map<String, Object>) swaggerMap.get(modeName).get("properties");
-        if (modeProperties == null) {
+
+        Map<String, Object> modeProperties = (Map<String, Object>) swaggerMap.get(modeName).getOrDefault("properties", new HashMap<>());
+        // map
+        if (swaggerMap.get(modeName).containsKey("additionalProperties")) {
+            modeProperties.put("dictionary key [*]", swaggerMap.get(modeName).get("additionalProperties"));
+        }
+        if (modeProperties.isEmpty()) {
             return null;
         }
 
@@ -385,9 +419,9 @@ public class WordServiceImpl implements WordService {
                     String clsName = refName.substring(14);
                     Map<String, Object> modeProperties1 = (Map<String, Object>) swaggerMap.get(clsName).get("properties");
                     List<ModelAttr> attrList1 = getModelAttrs(swaggerMap, resMap, modeAttr, modeProperties1);
-                    if (attrList1 != null && attrList != null) {
+                    if (!attrList1.isEmpty() && !attrList.isEmpty()) {
                         attrList.addAll(attrList1);
-                    } else if (attrList == null && attrList1 != null) {
+                    } else if (attrList.isEmpty() && !attrList1.isEmpty()) {
                         attrList = attrList1;
                     }
                 }
@@ -399,6 +433,7 @@ public class WordServiceImpl implements WordService {
         modeAttr.setClassName(title == null ? "" : title.toString());
         modeAttr.setDescription(description == null ? "" : description.toString());
         modeAttr.setProperties(attrList);
+        modeAttr.setExample(attrList.size() != 0 ? "#ref" : swaggerMap.get(modeName).get("example"));
         Object required = swaggerMap.get(modeName).get("required");
         if (Objects.nonNull(required)) {
             if ((required instanceof List) && !CollectionUtils.isEmpty(attrList)) {

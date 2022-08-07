@@ -8,7 +8,7 @@
             font-size: 14.5px;
             font-weight: bold;
             color: #000;
-            background-color: #559e68;
+            background-color: #64d8cf;
         }
 
         table {
@@ -166,7 +166,7 @@
                 </tr>
 
                 <th:block th:each="request, c:${table.bodyList}">
-                    <tr>
+                    <tr th:if="${not (request.type eq 'body')}">
                         <td align="left" th:text="${c.count} + '.' + ${request.name}"></td>
                         <td th:text="${request.type}"></td>
                         <td th:if="${request.require}" th:text="是"></td>
@@ -175,7 +175,7 @@
                         <!--                        <td th:if="${request.modelAttr}" th:text="asdfagadfg"></td>-->
                     </tr>
                     <th:block th:if="${request.modelAttr}">
-                        <tbody th:include="this::request(${request.modelAttr.properties},${c.count} + '.', 1)"/>
+                        <tbody th:include="this::request(${request.modelAttr.properties},'', 1)"/>
                     </th:block>
                 </th:block>
 
