@@ -81,6 +81,8 @@ public class WordServiceImpl implements WordService {
         // convert JSON string to Map
         Map<String, Object> map = JsonUtils.readValue(jsonStr, HashMap.class);
 
+        Map<String, Object> commonInfos = parseCommonInfo(map);
+
         //解析model
         Map<String, ModelAttr> definitionMap = parseDefinitions(map);
 
@@ -108,6 +110,7 @@ public class WordServiceImpl implements WordService {
                 Iterator<Entry<String, Object>> it2 = path.getValue().entrySet().iterator();
                 // 1.请求路径
                 String url = path.getKey();
+                url = commonInfos.get("basePath") + url;
 
                 while (it2.hasNext()) {
                     Entry<String, Object> request = it2.next();
@@ -200,6 +203,12 @@ public class WordServiceImpl implements WordService {
         return map;
     }
 
+    private Map<String, Object> parseCommonInfo(Map<String, Object> map) {
+        Map<String, Object> commonInfos = new HashMap<>();
+        commonInfos.put("basePath", map.getOrDefault("basePath", ""));
+        return commonInfos;
+    }
+
     /**
      * 处理请求参数列表
      *
@@ -266,8 +275,10 @@ public class WordServiceImpl implements WordService {
                                     for (int j = 0; j < attrList.size(); j++) {
                                         if (newModel.getName().equals(attrList.get(j).getName())) {
                                             attrList.set(j, newModel);
+                                            break;
                                         }
                                     }
+                                    attrList.add(newModel);
                                 }
                             }
                         }
