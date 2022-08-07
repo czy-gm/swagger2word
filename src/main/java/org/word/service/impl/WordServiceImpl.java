@@ -193,8 +193,8 @@ public class WordServiceImpl implements WordService {
                     }
 
                     //示例
-//                    table.setRequestParam(processRequestParam(table.getBodyList()));
-//                    table.setResponseParam(processResponseParam(obj, definitionMap));
+                    table.setRequestParam(processRequestParam(table.getBodyList()));
+                    table.setResponseParam(processResponseParam(map, obj, definitionMap));
 
                     result.add(table);
                 }
@@ -529,7 +529,8 @@ public class WordServiceImpl implements WordService {
      * @param responseObj
      * @return
      */
-    private String processResponseParam(Map<String, Object> responseObj, Map<String, ModelAttr> definitinMap) throws JsonProcessingException {
+    private String processResponseParam(Map<String, Object> map, Map<String, Object> responseObj, Map<String, ModelAttr> definitinMap) throws JsonProcessingException {
+        Map<String, Map<String, Object>> definitions = (Map<String, Map<String, Object>>) map.get("definitions");
         if (responseObj != null && responseObj.get("schema") != null) {
             Map<String, Object> schema = (Map<String, Object>) responseObj.get("schema");
             String type = (String) schema.get("type");
@@ -555,6 +556,34 @@ public class WordServiceImpl implements WordService {
                     return JsonUtils.writeJsonStr(responseMap);
                 }
             }
+
+            // allOf
+            if (schema.get("allOf") != null) {
+                List<Map<String, Object>> items = (List<Map<String, Object>>) schema.get("allOf");
+                Map<String, Object> responseMap = new HashMap<>();
+                ModelAttr modelAttr = new ModelAttr();
+                for (Map<String, Object> entry : items) {
+                    if (entry.get("$ref") != null) {
+                        String refName = entry.get("$ref").toString();
+                        modelAttr.getProperties().addAll(definitinMap.getOrDefault(refName, new ModelAttr()).getProperties());
+                    } else if (entry.get("properties") != null) {
+                        Map<String, Object> modeProperties1 = (Map<String, Object>) entry.get("properties");
+                        List<ModelAttr> modelAttrList = getModelAttrs(definitions, definitinMap, modelAttr, modeProperties1);
+                        List<ModelAttr> attrList = modelAttr.getProperties();
+                        for (ModelAttr newModel : modelAttrList) {
+                            for (int j = 0; j < attrList.size(); j++) {
+                                if (newModel.getName().equals(attrList.get(j).getName())) {
+                                    attrList.set(j, newModel);
+                                }
+                            }
+                        }
+                    }
+                }
+                for (ModelAttr modelAttr1: modelAttr.getProperties()) {
+                    responseMap.put(modelAttr1.getName(), getValue(modelAttr1.getType(), modelAttr1));
+                }
+                return JsonUtils.writeJsonStr(responseMap);
+            }
         }
         return StringUtils.EMPTY;
     }
@@ -566,8 +595,6 @@ public class WordServiceImpl implements WordService {
      * @return
      */
     private String processRequestParam(List<Request> list) throws IOException {
-        Map<String, Object> headerMap = new LinkedHashMap<>();
-        Map<String, Object> queryMap = new LinkedHashMap<>();
         Map<String, Object> jsonMap = new LinkedHashMap<>();
         if (list != null && list.size() > 0) {
             for (Request request : list) {
@@ -575,36 +602,28 @@ public class WordServiceImpl implements WordService {
                 String paramType = request.getParamType();
                 Object value = getValue(request.getType(), request.getModelAttr());
                 switch (paramType) {
-                    case "header":
-                        headerMap.put(name, value);
-                        break;
-                    case "query":
-                        queryMap.put(name, value);
-                        break;
-                    case "body":
+                    case "body":{
                         //TODO 根据content-type序列化成不同格式，目前只用了json
                         jsonMap.put(name, value);
                         break;
+                    }
                     default:
                         break;
-
                 }
             }
         }
         String res = "";
-        if (!queryMap.isEmpty()) {
-            res += getUrlParamsByMap(queryMap);
-        }
-        if (!headerMap.isEmpty()) {
-            res += " " + getHeaderByMap(headerMap);
-        }
         if (!jsonMap.isEmpty()) {
-            if (jsonMap.size() == 1) {
+            if (jsonMap.size() != 1) {
                 for (Entry<String, Object> entry : jsonMap.entrySet()) {
-                    res += " -d '" + JsonUtils.writeJsonStr(entry.getValue()) + "'";
+                    res += JsonUtils.writePrettyJSON(entry.getValue());
                 }
             } else {
-                res += " -d '" + JsonUtils.writeJsonStr(jsonMap) + "'";
+                if (jsonMap.containsKey("body")) {
+                    res += JsonUtils.writePrettyJSON(jsonMap.get("body"));
+                } else {
+                    res += JsonUtils.writePrettyJSON(jsonMap);
+                }
             }
         }
         return res;
@@ -632,7 +651,7 @@ public class WordServiceImpl implements WordService {
             case "integer(int32)":
                 return 0;
             case "number":
-                return 0.0;
+                return 0;
             case "boolean":
                 return true;
             case "file":
@@ -644,9 +663,10 @@ public class WordServiceImpl implements WordService {
                     for (ModelAttr subModelAttr : modelAttr.getProperties()) {
                         map.put(subModelAttr.getName(), getValue(subModelAttr.getType(), subModelAttr));
                     }
+                    list.add(map);
                 }
-                list.add(map);
                 return list;
+            case "body":
             case "object":
                 map = new LinkedHashMap<>();
                 if (modelAttr != null && !CollectionUtils.isEmpty(modelAttr.getProperties())) {

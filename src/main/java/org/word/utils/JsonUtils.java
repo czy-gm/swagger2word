@@ -55,6 +55,10 @@ public class JsonUtils {
         return objectMapper.writeValueAsString(obj);
     }
 
+    public static String writePrettyJSON(Object obj) throws JsonProcessingException {
+        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
+    }
+
     public static ObjectNode createObjectNode() {
         return objectMapper.createObjectNode();
     }
