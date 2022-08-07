@@ -14,6 +14,7 @@ import org.word.model.Request;
 import org.word.model.Response;
 import org.word.model.Table;
 import org.word.service.WordService;
+import org.word.utils.ClassType;
 import org.word.utils.JsonUtils;
 
 import java.io.IOException;
@@ -225,14 +226,23 @@ public class WordServiceImpl implements WordService {
                 }
                 request.setParamType(String.valueOf(in));
                 // 考虑对象参数类型
-                if (in != null && "body".equals(in)) {
+                if ("body".equals(in)) {
                     request.setType(String.valueOf(in));
                     Map<String, Object> schema = (Map) param.get("schema");
                     Object ref = schema.get("$ref");
                     // 数组情况另外处理
                     if (schema.get("type") != null && "array".equals(schema.get("type"))) {
                         ref = ((Map) schema.get("items")).get("$ref");
-                        request.setType("array");
+                        if (ref != null) {
+                            String refName = ((Map) schema.get("items")).get("$ref").toString();
+                            //截取 #/definitions/ 后面的
+                            String clsName = refName.substring(14);
+                            request.setType("array:" + clsName);
+                        } else if (((Map) schema.get("items")).containsKey("type")) {
+                            request.setType("array:" + ((Map) schema.get("items")).get("type"));
+                        } else {
+                            request.setType("array");
+                        }
                     }
                     if (ref != null) {
                         request.setModelAttr(definitinMap.get(ref));
@@ -260,6 +270,13 @@ public class WordServiceImpl implements WordService {
                                     }
                                 }
                             }
+                        }
+                    }
+                } else if ("path".equals(in) || "query".equals(in)){
+                    if (param.containsKey("items")) {
+                        Map<String, Object> items = (Map<String, Object>) param.get("items");
+                        if (items.containsKey("type")) {
+                            request.setType("array:" + items.get("type"));
                         }
                     }
                 }
@@ -402,7 +419,7 @@ public class WordServiceImpl implements WordService {
         Map<String, Object> modeProperties = (Map<String, Object>) swaggerMap.get(modeName).getOrDefault("properties", new HashMap<>());
         // map
         if (swaggerMap.get(modeName).containsKey("additionalProperties")) {
-            modeProperties.put("dictionary key [*]", swaggerMap.get(modeName).get("additionalProperties"));
+            modeProperties.put("dictionary key (*)", swaggerMap.get(modeName).get("additionalProperties"));
         }
         if (modeProperties.isEmpty()) {
             return null;
@@ -465,6 +482,11 @@ public class WordServiceImpl implements WordService {
 
             Object ref = attrInfoMap.get("$ref");
             Object items = attrInfoMap.get("items");
+            if (items != null) {
+                if (((Map)items).containsKey("type")) {
+                    child.setType(child.getType() + ":" + ((Map)items).get("type"));
+                }
+            }
             if (ref != null || (items != null && (ref = ((Map) items).get("$ref")) != null)) {
                 String refName = ref.toString();
                 //截取 #/definitions/ 后面的
@@ -475,6 +497,14 @@ public class WordServiceImpl implements WordService {
                     child.setProperties(refModel.getProperties());
                 }
                 child.setType(child.getType() + ":" + clsName);
+            } else if (attrInfoMap.containsKey("additionalProperties")) {
+                Map<String, Object> subModeProperties = new HashMap<>();
+                modeAttr.setCompleted(true);
+                if (ClassType.isMap(attrInfoMap.get("additionalProperties"))) {
+                    subModeProperties.put("dictionary key (*)", attrInfoMap.get("additionalProperties"));
+                    List<ModelAttr> subModelAttrList = getModelAttrs(swaggerMap, resMap, child, subModeProperties);
+                    child.setProperties(subModelAttrList);
+                }
             }
             child.setDescription((String) attrInfoMap.get("description"));
             attrList.add(child);
