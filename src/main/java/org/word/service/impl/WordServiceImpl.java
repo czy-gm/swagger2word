@@ -553,7 +553,7 @@ public class WordServiceImpl implements WordService {
                     for (ModelAttr subModelAttr : modelAttr.getProperties()) {
                         responseMap.put(subModelAttr.getName(), getValue(subModelAttr.getType(), subModelAttr));
                     }
-                    return JsonUtils.writeJsonStr(responseMap);
+                    return JsonUtils.writePrettyJSON(responseMap);
                 }
             }
 
@@ -582,7 +582,7 @@ public class WordServiceImpl implements WordService {
                 for (ModelAttr modelAttr1: modelAttr.getProperties()) {
                     responseMap.put(modelAttr1.getName(), getValue(modelAttr1.getType(), modelAttr1));
                 }
-                return JsonUtils.writeJsonStr(responseMap);
+                return JsonUtils.writePrettyJSON(responseMap);
             }
         }
         return StringUtils.EMPTY;
