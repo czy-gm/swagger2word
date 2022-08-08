@@ -100,7 +100,7 @@ public class WordController {
         response.setContentType("application/octet-stream;charset=utf-8");
         response.setCharacterEncoding("utf-8");
         try (BufferedOutputStream bos = new BufferedOutputStream(response.getOutputStream())) {
-            response.setHeader("Content-disposition", "attachment;filename=" + URLEncoder.encode(fileName + ".docx", "utf-8"));
+            response.setHeader("Content-disposition", "attachment;filename=" + URLEncoder.encode(fileName + ".doc", "utf-8"));
             byte[] bytes = content.getBytes();
             bos.write(bytes, 0, bytes.length);
             bos.flush();
