@@ -1,6 +1,7 @@
 # Swagger2Word
-    The project can convert swagger documents to Word documents.
 *[English](README.md) ∙ [简体中文](README_zh-CN.md)*
+
+The project can convert swagger documents to Word documents.
 
 ## New features
 - Adjust the table style to make it more intuitive
